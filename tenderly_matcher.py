@@ -57,9 +57,9 @@ def has_negative_statement(text, keyword):
     return any(pattern in lowered for pattern in negative_patterns)
 
 
-def keyword_rule_score(clause_text, evidence_text):
+def keyword_rule_score(clause_text, all_evidence_text):
     clause = clause_text.lower()
-    evidence = evidence_text.lower()
+    evidence = all_evidence_text.lower()
     score = 0.0
 
     # ISO certificate rule
@@ -88,19 +88,47 @@ def keyword_rule_score(clause_text, evidence_text):
     # Turnover rule
     if "turnover" in clause:
         clause_amount = extract_amount(clause_text)
-        evidence_amount = extract_amount(evidence_text)
 
-        if clause_amount and evidence_amount:
-            if evidence_amount >= clause_amount:
+        evidence_amounts = [
+            extract_amount(item)
+            for item in re.findall(
+                r"(?:rs\.?|inr|₹)\s*([0-9]+(?:\.[0-9]+)?)\s*(crore|cr|lakh|lakhs)?",
+                all_evidence_text,
+                re.IGNORECASE
+            )
+        ]
+
+        evidence_amounts = [
+            amount for amount in evidence_amounts if amount is not None
+        ]
+
+        if clause_amount and evidence_amounts:
+            highest_amount = max(evidence_amounts)
+
+            if highest_amount >= clause_amount:
                 score += 1.0
 
     # Experience rule
     if "experience" in clause:
         clause_years = extract_years(clause_text)
-        evidence_years = extract_years(evidence_text)
+
+        evidence_years = [
+            extract_years(item)
+            for item in re.findall(
+                r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:financial\s+)?years?",
+                all_evidence_text,
+                re.IGNORECASE
+            )
+        ]
+
+        evidence_years = [
+            years for years in evidence_years if years is not None
+        ]
 
         if clause_years and evidence_years:
-            if evidence_years >= clause_years:
+            highest_years = max(evidence_years)
+
+            if highest_years >= clause_years:
                 score += 1.0
 
     # Past project / work order rule
@@ -116,20 +144,25 @@ def keyword_rule_score(clause_text, evidence_text):
 
 
 def match_clause_with_evidence(clause, evidence_documents):
-    best_document = None
-    best_score = 0.0
+    all_evidence_text = "\n".join(
+        document["text"]
+        for document in evidence_documents
+    )
 
-    for document in evidence_documents:
-        cosine = cosine_similarity(clause["text"], document["text"])
-        rule = keyword_rule_score(clause["text"], document["text"])
+    cosine_scores = [
+        cosine_similarity(clause["text"], document["text"])
+        for document in evidence_documents
+    ]
 
-        hybrid = COSINE_WEIGHT * cosine + RULE_WEIGHT * rule
+    best_cosine = max(cosine_scores) if cosine_scores else 0.0
+    rule = keyword_rule_score(clause["text"], all_evidence_text)
 
-        # A clear rule-based match is more reliable than text similarity.
-        final_score = max(hybrid, rule * 0.95)
+    hybrid = COSINE_WEIGHT * best_cosine + RULE_WEIGHT * rule
 
-        if final_score > best_score:
-            best_score = final_score
-            best_document = document
+    final_score = max(hybrid, rule * 0.95)
 
-    return best_document, best_score
+    best_document = evidence_documents[
+        cosine_scores.index(best_cosine)
+    ] if evidence_documents else None
+
+    return best_document, final_score
