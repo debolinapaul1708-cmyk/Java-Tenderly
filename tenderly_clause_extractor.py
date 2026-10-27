@@ -6,7 +6,23 @@ AMOUNT_PATTERN = re.compile(
     re.IGNORECASE
 )
 
-YEAR_PATTERN = re.compile(r"(\d+)\s*(?:financial\s+)?years?", re.IGNORECASE)
+YEAR_PATTERN = re.compile(
+    r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:financial\s+)?years?",
+    re.IGNORECASE
+)
+
+WORD_NUMBERS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10
+}
 
 
 def normalize_amount(value, unit):
@@ -33,7 +49,16 @@ def extract_amount(text):
 
 def extract_years(text):
     match = YEAR_PATTERN.search(text)
-    return int(match.group(1)) if match else None
+
+    if not match:
+        return None
+
+    value = match.group(1).lower()
+
+    if value in WORD_NUMBERS:
+        return WORD_NUMBERS[value]
+
+    return int(value)
 
 
 def classify_clause(text):
