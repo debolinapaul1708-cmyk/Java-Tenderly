@@ -89,18 +89,16 @@ def keyword_rule_score(clause_text, all_evidence_text):
     if "turnover" in clause:
         clause_amount = extract_amount(clause_text)
 
-        evidence_amounts = [
-            extract_amount(item)
-            for item in re.findall(
-                r"(?:rs\.?|inr|₹)\s*([0-9]+(?:\.[0-9]+)?)\s*(crore|cr|lakh|lakhs)?",
-                all_evidence_text,
-                re.IGNORECASE
-            )
-        ]
+        evidence_amounts = []
 
-        evidence_amounts = [
-            amount for amount in evidence_amounts if amount is not None
-        ]
+        for match in re.finditer(
+            r"(?:rs\.?|inr|\u20b9)\s*([0-9]+(?:\.[0-9]+)?)\s*(crore|cr|lakh|lakhs)?",
+            all_evidence_text,
+            re.IGNORECASE
+        ):
+            amount = extract_amount(match.group(0))
+            if amount is not None:
+                evidence_amounts.append(amount)
 
         if clause_amount and evidence_amounts:
             highest_amount = max(evidence_amounts)
@@ -112,18 +110,16 @@ def keyword_rule_score(clause_text, all_evidence_text):
     if "experience" in clause:
         clause_years = extract_years(clause_text)
 
-        evidence_years = [
-            extract_years(item)
-            for item in re.findall(
-                r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:financial\s+)?years?",
-                all_evidence_text,
-                re.IGNORECASE
-            )
-        ]
+        evidence_years = []
 
-        evidence_years = [
-            years for years in evidence_years if years is not None
-        ]
+        for match in re.finditer(
+            r"(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s*(?:financial\s+)?years?",
+            all_evidence_text,
+            re.IGNORECASE
+        ):
+            years = extract_years(match.group(0))
+            if years is not None:
+                evidence_years.append(years)
 
         if clause_years and evidence_years:
             highest_years = max(evidence_years)
