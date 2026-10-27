@@ -43,22 +43,34 @@ def keyword_rule_score(clause_text, evidence_text):
     if "iso" in clause:
         match = re.search(r"iso\s*(\d{4,5})", clause)
         if match and match.group(1) in evidence:
-            score += 0.6
+            score += 1.0
 
     if "gst" in clause and "gst" in evidence:
-        score += 0.6
+        score += 1.0
 
     if "turnover" in clause:
         clause_amount = extract_amount(clause_text)
         evidence_amount = extract_amount(evidence_text)
-        if clause_amount and evidence_amount and evidence_amount >= clause_amount:
-            score += 0.8
+
+        if clause_amount and evidence_amount:
+            if evidence_amount >= clause_amount:
+                score += 1.0
+            else:
+                score += 0.3
 
     if "experience" in clause:
         clause_years = extract_years(clause_text)
         evidence_years = extract_years(evidence_text)
-        if clause_years and evidence_years and evidence_years >= clause_years:
-            score += 0.8
+
+        if clause_years and evidence_years:
+            if evidence_years >= clause_years:
+                score += 1.0
+            else:
+                score += 0.3
+
+    if "work order" in clause or "past project" in clause:
+        if "work order" in evidence or "past project" in evidence:
+            score += 1.0
 
     return min(score, 1.0)
 
@@ -70,10 +82,14 @@ def match_clause_with_evidence(clause, evidence_documents):
     for document in evidence_documents:
         cosine = cosine_similarity(clause["text"], document["text"])
         rule = keyword_rule_score(clause["text"], document["text"])
+
         hybrid = COSINE_WEIGHT * cosine + RULE_WEIGHT * rule
 
-        if hybrid > best_score:
-            best_score = hybrid
+        # If a clear rule-based match exists, give it more importance.
+        final_score = max(hybrid, rule * 0.9)
+
+        if final_score > best_score:
+            best_score = final_score
             best_document = document
 
     return best_document, best_score
